@@ -38,21 +38,28 @@ async def add_product_in_db(product: ProductIn):
         rating = data["reviewRating"]
         total = data["totalQuantity"]
         
-        async with async_session() as session:
-            check_in_db = select(Product).filter(Product.articul == articul)
-            result = await session.execute(check_in_db)
-            product_in_db = result.scalars().first()
+    async with async_session() as session:
+        # Проверка, существует ли товар с таким артикулом
+        check_in_db = select(Product).filter(Product.articul == articul)
+        result = await session.execute(check_in_db)
+        product_in_db = result.scalars().first()
 
-            if product_in_db:
-                return {"message": "Товар уже существует"}
+        if product_in_db:
+            # Если товар существует, обновляем его данные
+            product_in_db.name = name
+            product_in_db.price = price
+            product_in_db.rating = rating
+            product_in_db.total = total
 
-            product_to_db = Product(name=name, articul=articul, price=price, rating=rating, total=total)
-            session.add(product_to_db)  # использование существующей транзакции
             await session.commit()
+            return {"message": "Товар обновлён в базе данных"}
+        
+        # Если товара нет в базе, добавляем новый
+        product_to_db = Product(name=name, articul=articul, price=price, rating=rating, total=total)
+        session.add(product_to_db)
+        await session.commit()
         return {"message": "Товар добавлен в базу данных"}
 
-    else:
-        return {"Error": f"Ошибка {response.status_code}"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
